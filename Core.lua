@@ -57,9 +57,6 @@ local DEFAULT_DB = {
 		warnOnMissingBuff = true,
 		warnOnCollision = true,
 	},
-	exclusions = {}, -- [playerName] = true
-	roleOverrides = {}, -- [playerName] = "TANK"/"HEALER"/"MELEE"/"CASTER"
-	forcedBlessing = {}, -- [playerName] = blessing key, manual per-player override
 }
 
 local function CopyDefaults(src, dst)

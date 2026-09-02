@@ -28,10 +28,29 @@ local function newProfile(name)
 	}
 end
 
+-- Backfills any field missing from a profile loaded from older
+-- SavedVariables (e.g. casterOverride didn't exist in earlier addon
+-- versions) without touching fields the profile already has.
+local function migrateProfile(prof)
+	local template = newProfile(prof.name)
+	for key, value in pairs(template) do
+		if prof[key] == nil then
+			prof[key] = value
+		end
+	end
+	return prof
+end
+
 function P:EnsureDefault()
 	local db = BM.db
 	if not db.profiles["Default"] then
 		db.profiles["Default"] = newProfile("Default")
+	end
+	if not self._migrated then
+		for _, prof in pairs(db.profiles) do
+			migrateProfile(prof)
+		end
+		self._migrated = true
 	end
 	if not db.profiles[db.activeProfile] then
 		db.activeProfile = "Default"
@@ -292,6 +311,7 @@ function P:Import(str)
 		suffix = suffix + 1
 	end
 	tbl.name = finalName
+	migrateProfile(tbl) -- backfill fields missing from an older export string
 	BM.db.profiles[finalName] = tbl
 	BM:Fire("PROFILE_LIST_CHANGED")
 	return true, finalName
