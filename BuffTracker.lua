@@ -8,19 +8,23 @@ local T = BM.BuffTracker
 
 T.status = {} -- [shortName] = "ok" | "missing" | "wrong" | "unassigned"
 
--- Reverse lookup: buff name -> blessing key, covering both Greater and
--- single versions plus utility blessings we still want to recognize.
+-- Reverse lookup: localized buff name -> blessing key, covering both Greater
+-- and single versions. Built from spell IDs via BM:GetSpellName() so the
+-- resolved name matches whatever locale the client is running - UnitBuff
+-- also returns the same client-localized name, so the comparison stays
+-- correct regardless of language.
 local buffNameToKey
 local function buildLookup()
 	buffNameToKey = {}
 	for key, def in pairs(BM.BLESSINGS) do
-		if def.greaterSpell then buffNameToKey[def.greaterSpell] = key end
-		if def.singleSpell then buffNameToKey[def.singleSpell] = key end
+		local greaterName = BM:GetSpellName(def.greaterSpellId)
+		local singleName = BM:GetSpellName(def.singleSpellId)
+		if greaterName then buffNameToKey[greaterName] = key end
+		if singleName then buffNameToKey[singleName] = key end
 	end
 end
 
 local function scanUnitBlessing(unit)
-	if not buffNameToKey then buildLookup() end
 	for i = 1, 40 do
 		local name = UnitBuff(unit, i)
 		if not name then break end
@@ -33,6 +37,9 @@ end
 function T:Scan()
 	local plan = BM.Assignment.plan
 	if not plan then return end
+	-- Rebuilding here (once per scan, not per unit) keeps the lookup current
+	-- if names weren't resolvable yet at addon load, at negligible cost.
+	buildLookup()
 	local changed = false
 	for name, expectedKey in pairs(plan.finalBlessing) do
 		local member = BM.Roster.byName[name]

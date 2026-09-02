@@ -61,7 +61,12 @@ end
 local function SetButtonAction(btn, action)
 	if InCombatLockdown() then return false end
 	local def = BM.BLESSINGS[action.blessingKey]
-	local spellName = action.kind == "greater" and def.greaterSpell or def.singleSpell
+	local spellId = action.kind == "greater" and def.greaterSpellId or def.singleSpellId
+	-- Macros only accept a spell *name*, not a numeric ID, so we resolve the
+	-- client's own localized name for that ID here - this keeps the macro
+	-- text correct on any locale without ever hardcoding an English string.
+	local spellName = BM:GetSpellName(spellId)
+	if not spellName then return false end
 	btn:SetAttribute("type", "macro")
 	btn:SetAttribute("macrotext", ("/cast [target=%s] %s"):format(action.targetName, spellName))
 	btn.icon:SetTexture(BM:GetBlessingIcon(action.blessingKey, action.kind == "greater"))
@@ -147,9 +152,11 @@ function CB:BuildUtilityButtons(container)
 		end
 		if not InCombatLockdown() then
 			btn:SetAttribute("type", "spell")
-			btn:SetAttribute("spell", def.spell)
+			-- The "spell" attribute accepts a numeric spell ID directly, so
+			-- this needs no name resolution at all and works on any locale.
+			btn:SetAttribute("spell", def.spellId)
 		end
-		btn.icon:SetTexture(BM:GetSpellIcon(def.spell))
+		btn.icon:SetTexture(BM:GetSpellIcon(def.spellId))
 	end
 end
 

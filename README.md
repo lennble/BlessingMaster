@@ -34,8 +34,15 @@ Segen nicht (mehr) hat.
   Gruppen-Segen abweicht, bekommen automatisch einen gezielten Einzel-Segen
   (Tier-2-Patch) vom am wenigsten ausgelasteten Paladin.
 - **Greater vs. Einzel-Segen**: Beide Varianten werden getrennt geführt
-  (`greaterSpell` / `singleSpell` je Segen in `Constants.lua`) und im UI
+  (`greaterSpellId` / `singleSpellId` je Segen in `Constants.lua`) und im UI
   unterschiedlich markiert (goldener vs. grauer Rahmen, "G-"-Präfix).
+- **Lokalisierungsunabhängig**: Segen werden intern über numerische
+  Spell-IDs identifiziert statt über englische Namen. Name und Icon werden
+  zur Laufzeit per `GetSpellInfo(id)` in der Sprache des jeweiligen Clients
+  aufgelöst (`BM:GetSpellName`/`BM:GetSpellIcon`) - das Addon funktioniert
+  dadurch auch auf deutschen, französischen etc. Clients. Beim Login prüft
+  `BM:ValidateSpellIds()`, ob alle konfigurierten IDs auf dem aktuellen
+  Client auflösbar sind, und warnt im Chat, falls nicht.
 - **Live-Sync zwischen Paladinen**: Über einen Addon-Kommunikationskanal
   (`CHAT_MSG_ADDON`, Prefix `BlessingMstr`) wählen alle Paladin-Clients
   deterministisch denselben "Koordinator" (Raidleiter > Assist > alphabetisch
@@ -71,6 +78,15 @@ Segen nicht (mehr) hat.
 
 ## Bekannte Einschränkungen
 
+- Die in `Constants.lua` hinterlegten Spell-IDs wurden per Web-Recherche
+  zusammengestellt (Wowhead-Direktzugriff war in der Entwicklungsumgebung
+  blockiert) und stammen von den unter `wowhead.com/tbc/...` als
+  "TBC Classic" gekennzeichneten Einträgen. Da Rang/ID-Zuordnungen sich
+  zwischen dem originalen TBC (2007) und dem Classic-Relaunch teils
+  unterscheiden, unbedingt nach dem ersten Login die Chat-Ausgabe prüfen:
+  Meldet `BM:ValidateSpellIds()` eine nicht auflösbare ID, in `Constants.lua`
+  die betroffene `*SpellId`-Zahl anhand der eigenen Zauberbuch-Tooltips oder
+  z. B. `/dump GetSpellInfo(19838)` im Spiel korrigieren.
 - Die Sync-Logik geht davon aus, dass alle beteiligten Paladine
   BlessingMaster installiert haben; Paladine ohne Addon werden nicht als
   Caster eingeplant, tauchen aber weiterhin als normales Raidmitglied
