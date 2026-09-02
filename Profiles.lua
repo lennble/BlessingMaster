@@ -24,6 +24,7 @@ local function newProfile(name)
 		roleOverrides = {},   -- [name] = "TANK"/"HEALER"/"MELEE"/"CASTER"
 		forcedBlessing = {},    -- [name] = blessingKey, hard pin
 		exclusions = {},         -- [name] = true
+		casterOverride = {},      -- [name] = paladinShortName, hard pin on WHO casts on them
 	}
 end
 
@@ -65,8 +66,6 @@ function P:CreateFromCurrent(name)
 	local copy = newProfile(name)
 	for k, v in pairs(cur) do
 		if type(v) == "table" then
-			copy[k] = CopyTable and CopyTable(v) or v
-			-- fallback shallow-deep copy without relying on CopyTable existing
 			local t = {}
 			for kk, vv in pairs(v) do t[kk] = vv end
 			copy[k] = t
@@ -122,6 +121,19 @@ function P:SetForcedBlessing(name, blessingKey)
 	local prof = self:Get()
 	prof.forcedBlessing[name] = blessingKey
 	BM:Fire("REQUEST_RECALC")
+end
+
+-- Pin exactly which paladin is responsible for casting on this player,
+-- overriding the load-balanced auto-assignment. paladinName == nil clears
+-- the pin and goes back to automatic.
+function P:SetCasterOverride(name, paladinName)
+	local prof = self:Get()
+	prof.casterOverride[name] = paladinName
+	BM:Fire("REQUEST_RECALC")
+end
+
+function P:GetCasterOverride(name)
+	return self:Get().casterOverride[name]
 end
 
 -- ---------------------------------------------------------------------------

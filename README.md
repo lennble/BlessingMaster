@@ -40,9 +40,18 @@ Segen nicht (mehr) hat.
   Spell-IDs identifiziert statt über englische Namen. Name und Icon werden
   zur Laufzeit per `GetSpellInfo(id)` in der Sprache des jeweiligen Clients
   aufgelöst (`BM:GetSpellName`/`BM:GetSpellIcon`) - das Addon funktioniert
-  dadurch auch auf deutschen, französischen etc. Clients. Beim Login prüft
-  `BM:ValidateSpellIds()`, ob alle konfigurierten IDs auf dem aktuellen
-  Client auflösbar sind, und warnt im Chat, falls nicht.
+  dadurch auch auf deutschen, französischen etc. Clients. Jeder Segen listet
+  mehrere Kandidaten-IDs (`Constants.lua`); die erste, die auf dem jeweiligen
+  Client auflöst, wird verwendet - schlägt eine ID fehl, greift automatisch
+  die nächste. Bleiben alle Kandidaten eines Segens erfolglos, zeigt das
+  Icon dafür ein rotes Fragezeichen mit Tooltip statt einfach leer zu
+  bleiben, und `BM:ValidateSpellIds()` warnt beim Login im Chat.
+- **Smart Assignment manuell überschreiben**: Rechtsklick auf eine Zeile in
+  der Raid-Übersicht öffnet ein Menü mit drei unabhängigen Overrides -
+  Rolle, erzwungener Segen und **"Wer castet?"** (pinnt einen bestimmten
+  Paladin als festen Caster für diesen Spieler, unabhängig von der
+  automatischen Lastverteilung). Ein `[F]`-Tag hinter dem Castername in der
+  Übersicht zeigt eine aktive Fixierung an.
 - **Live-Sync zwischen Paladinen**: Über einen Addon-Kommunikationskanal
   (`CHAT_MSG_ADDON`, Prefix `BlessingMstr`) wählen alle Paladin-Clients
   deterministisch denselben "Koordinator" (Raidleiter > Assist > alphabetisch
@@ -83,10 +92,12 @@ Segen nicht (mehr) hat.
   blockiert) und stammen von den unter `wowhead.com/tbc/...` als
   "TBC Classic" gekennzeichneten Einträgen. Da Rang/ID-Zuordnungen sich
   zwischen dem originalen TBC (2007) und dem Classic-Relaunch teils
-  unterscheiden, unbedingt nach dem ersten Login die Chat-Ausgabe prüfen:
-  Meldet `BM:ValidateSpellIds()` eine nicht auflösbare ID, in `Constants.lua`
-  die betroffene `*SpellId`-Zahl anhand der eigenen Zauberbuch-Tooltips oder
-  z. B. `/dump GetSpellInfo(19838)` im Spiel korrigieren.
+  unterscheiden, listet jeder Segen mehrere Kandidaten-IDs als Absicherung
+  (siehe oben). Trotzdem nach dem ersten Login die Chat-Ausgabe prüfen:
+  Meldet `BM:ValidateSpellIds()` einen Segen als nicht auflösbar, in
+  `Constants.lua` bei der betroffenen `*SpellId`-Liste eine weitere,
+  selbst ermittelte ID ergänzen (z. B. via `/dump GetSpellInfo(19838)` im
+  Spiel oder aus dem eigenen Zauberbuch-Tooltip).
 - Die Sync-Logik geht davon aus, dass alle beteiligten Paladine
   BlessingMaster installiert haben; Paladine ohne Addon werden nicht als
   Caster eingeplant, tauchen aber weiterhin als normales Raidmitglied

@@ -9,6 +9,7 @@ local A = BM.Assignment
 A.plan = {
 	byPaladin = {},     -- [paladinName] = { queue = { action, ... } }
 	finalBlessing = {}, -- [memberName] = blessingKey
+	casterOf = {},      -- [memberName] = paladinName currently responsible for them
 	groupBlessing = {}, -- [groupNum] = blessingKey
 	collisions = {},    -- array of { name, blessingA, casterA, blessingB, casterB }
 	generatedAt = 0,
@@ -43,6 +44,7 @@ function A:Recalculate()
 	local plan = {
 		byPaladin = {},
 		finalBlessing = {},
+		casterOf = {},
 		groupBlessing = {},
 		collisions = {},
 		generatedAt = time(),
@@ -84,8 +86,10 @@ function A:Recalculate()
 	end
 
 	local paladinNames = sortedPaladinNames(roster.paladins)
+	local paladinAvailable = {}
 	for _, name in ipairs(paladinNames) do
 		plan.byPaladin[name] = { queue = {}, load = 0 }
+		paladinAvailable[name] = true
 	end
 
 	if #paladinNames == 0 then
@@ -117,6 +121,7 @@ function A:Recalculate()
 		for _, m in ipairs(groupData.members) do
 			table.insert(action.memberNames, m.shortName)
 			plan.finalBlessing[m.shortName] = blessingKey
+			plan.casterOf[m.shortName] = paladinName
 		end
 		local bucket = plan.byPaladin[paladinName]
 		table.insert(bucket.queue, action)
@@ -140,8 +145,14 @@ function A:Recalculate()
 	for _, g in ipairs(groupNums) do
 		local groupData = groups[g]
 		for _, m in ipairs(groupData.members) do
-			if m.desired ~= groupData.blessing then
-				local paladinName = leastLoadedPaladin()
+			local overrideCaster = profile.casterOverride[m.shortName]
+			local overrideAvailable = overrideCaster and paladinAvailable[overrideCaster]
+			-- A caster override always forces an explicit single-target cast
+			-- for this member, even if it happens to match the group's
+			-- Greater Blessing - otherwise pinning "always X casts on me"
+			-- would silently do nothing whenever it agreed with the default.
+			if m.desired ~= groupData.blessing or overrideAvailable then
+				local paladinName = overrideAvailable and overrideCaster or leastLoadedPaladin()
 				local bucket = plan.byPaladin[paladinName]
 				table.insert(bucket.queue, {
 					kind = "single",
@@ -152,6 +163,7 @@ function A:Recalculate()
 				})
 				bucket.load = bucket.load + 1
 				plan.finalBlessing[m.shortName] = m.desired
+				plan.casterOf[m.shortName] = paladinName
 			end
 		end
 	end
@@ -197,6 +209,10 @@ end
 
 function A:GetFinalBlessing(memberName)
 	return self.plan.finalBlessing[memberName]
+end
+
+function A:GetCasterOf(memberName)
+	return self.plan.casterOf[memberName]
 end
 
 -- Recalculate on anything that changes the shape of the answer.

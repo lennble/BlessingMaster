@@ -7,25 +7,60 @@ local BM = _G.BlessingMaster
 BM.UI = {}
 local UI = BM.UI
 
-local PANEL_BG = { 0.06, 0.06, 0.09, 0.92 }
-local PANEL_BORDER = { 0.35, 0.55, 0.9, 0.9 }
-local ROW_HEIGHT = 20
+-- Palette
+local COL_BG        = { 0.05, 0.06, 0.09, 0.96 }
+local COL_BG_HEADER  = { 0.09, 0.13, 0.22, 1 }
+local COL_BG_SECTION = { 0.09, 0.10, 0.14, 0.9 }
+local COL_BORDER     = { 0.30, 0.55, 0.95, 0.55 }
+local COL_ACCENT     = { 0.30, 0.65, 1.00 }
+local COL_DIVIDER    = { 1, 1, 1, 0.08 }
+local ROW_HEIGHT = 22
 
 local STATUS_COLOR = {
-	ok = { 0.2, 0.85, 0.25 },
-	missing = { 0.9, 0.15, 0.15 },
+	ok = { 0.25, 0.85, 0.3 },
+	missing = { 0.9, 0.2, 0.2 },
 	wrong = { 0.95, 0.6, 0.1 },
-	unassigned = { 0.4, 0.4, 0.4 },
+	unassigned = { 0.35, 0.35, 0.4 },
+}
+
+local ROLE_LABELS = {
+	{ key = nil, label = "Automatisch" },
+	{ key = "MELEE", label = "Nahkampf" },
+	{ key = "CASTER", label = "Caster" },
+	{ key = "HEALER", label = "Heiler" },
+	{ key = "TANK", label = "Tank" },
 }
 
 local function Backdrop(frame, bg, border, edgeSize)
 	frame:SetBackdrop({
 		bgFile = "Interface\\Buttons\\WHITE8x8",
-		edgeFile = "Interface\\Buttons\\WHITE8x8",
+		edgeFile = border and "Interface\\Buttons\\WHITE8x8" or nil,
 		edgeSize = edgeSize or 1,
 	})
 	frame:SetBackdropColor(unpack(bg))
-	frame:SetBackdropBorderColor(unpack(border))
+	if border then frame:SetBackdropBorderColor(unpack(border)) end
+end
+
+local function Divider(parent, anchorTo, yOffset)
+	local line = parent:CreateTexture(nil, "ARTWORK")
+	line:SetHeight(1)
+	line:SetPoint("TOPLEFT", anchorTo, "BOTTOMLEFT", 0, yOffset or -6)
+	line:SetPoint("TOPRIGHT", anchorTo, "BOTTOMRIGHT", 0, yOffset or -6)
+	line:SetColorTexture(unpack(COL_DIVIDER))
+	return line
+end
+
+local function SectionLabel(parent, anchorTo, text, yOffset)
+	local tick = parent:CreateTexture(nil, "ARTWORK")
+	tick:SetSize(2, 10)
+	tick:SetPoint("TOPLEFT", anchorTo, "BOTTOMLEFT", 0, (yOffset or -10) + 1)
+	tick:SetColorTexture(COL_ACCENT[1], COL_ACCENT[2], COL_ACCENT[3], 0.9)
+
+	local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+	fs:SetPoint("TOPLEFT", anchorTo, "BOTTOMLEFT", 6, yOffset or -10)
+	fs:SetText(("|cff9fb8d9%s|r"):format(text:upper()))
+	fs.tick = tick
+	return fs
 end
 
 -- ---------------------------------------------------------------------------
@@ -36,50 +71,65 @@ function UI:Create()
 	if self.frame then return end
 
 	local f = CreateFrame("Frame", "BlessingMasterFrame", UIParent, "BackdropTemplate")
-	f:SetSize(340, 440)
+	f:SetSize(340, 470)
 	f:SetPoint(BM.db.ui.point, UIParent, BM.db.ui.relPoint, BM.db.ui.x, BM.db.ui.y)
 	f:SetScale(BM.db.ui.scale)
 	f:SetClampedToScreen(true)
 	f:SetMovable(true)
 	f:EnableMouse(true)
 	f:SetFrameStrata("MEDIUM")
-	Backdrop(f, PANEL_BG, PANEL_BORDER, 2)
+	Backdrop(f, COL_BG, COL_BORDER, 1.5)
 	f:Hide()
 	self.frame = f
 
 	-- Title bar
 	local title = CreateFrame("Frame", nil, f, "BackdropTemplate")
-	title:SetPoint("TOPLEFT", 2, -2)
-	title:SetPoint("TOPRIGHT", -2, -2)
-	title:SetHeight(28)
-	Backdrop(title, { 0.12, 0.16, 0.3, 1 }, { 0, 0, 0, 0 }, 0)
+	title:SetPoint("TOPLEFT", 1, -1)
+	title:SetPoint("TOPRIGHT", -1, -1)
+	title:SetHeight(30)
+	Backdrop(title, COL_BG_HEADER)
+	local accentLine = title:CreateTexture(nil, "ARTWORK")
+	accentLine:SetHeight(2)
+	accentLine:SetPoint("BOTTOMLEFT")
+	accentLine:SetPoint("BOTTOMRIGHT")
+	accentLine:SetColorTexture(COL_ACCENT[1], COL_ACCENT[2], COL_ACCENT[3], 0.9)
 	self.title = title
 
 	local icon = title:CreateTexture(nil, "ARTWORK")
-	icon:SetSize(18, 18)
-	icon:SetPoint("LEFT", 6, 0)
+	icon:SetSize(20, 20)
+	icon:SetPoint("LEFT", 8, 0)
 	icon:SetTexture(BM:GetBlessingIcon("KINGS", true))
+	icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
 	local titleText = title:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-	titleText:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+	titleText:SetPoint("LEFT", icon, "RIGHT", 7, 0)
 	titleText:SetText("|cff6fb8ffBlessing|r|cffffffffMaster|r")
 
 	local closeBtn = CreateFrame("Button", nil, title, "UIPanelCloseButton")
-	closeBtn:SetPoint("RIGHT", -2, 0)
-	closeBtn:SetSize(20, 20)
+	closeBtn:SetPoint("RIGHT", -1, 0)
+	closeBtn:SetSize(24, 24)
 	closeBtn:SetScript("OnClick", function() UI:Hide() end)
 
-	local compactBtn = CreateFrame("Button", nil, title, "UIPanelButtonTemplate")
-	compactBtn:SetSize(20, 20)
-	compactBtn:SetText("_")
-	compactBtn:SetPoint("RIGHT", closeBtn, "LEFT", -2, 0)
+	local function TitleIconButton(glyph, tooltip)
+		local b = CreateFrame("Button", nil, title, "UIPanelButtonTemplate")
+		b:SetSize(22, 20)
+		b:SetText(glyph)
+		b:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_TOP")
+			GameTooltip:SetText(tooltip)
+			GameTooltip:Show()
+		end)
+		b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+		return b
+	end
+
+	local compactBtn = TitleIconButton("-", "Kompaktmodus umschalten")
+	compactBtn:SetPoint("RIGHT", closeBtn, "LEFT", -3, 0)
 	compactBtn:SetScript("OnClick", function() UI:ToggleCompact() end)
 	self.compactBtn = compactBtn
 
-	local lockBtn = CreateFrame("Button", nil, title, "UIPanelButtonTemplate")
-	lockBtn:SetSize(20, 20)
-	lockBtn:SetText(BM.db.ui.locked and "L" or "U")
-	lockBtn:SetPoint("RIGHT", compactBtn, "LEFT", -2, 0)
+	local lockBtn = TitleIconButton(BM.db.ui.locked and "L" or "U", "Fenster sperren/entsperren")
+	lockBtn:SetPoint("RIGHT", compactBtn, "LEFT", -3, 0)
 	lockBtn:SetScript("OnClick", function()
 		BM.db.ui.locked = not BM.db.ui.locked
 		lockBtn:SetText(BM.db.ui.locked and "L" or "U")
@@ -98,70 +148,71 @@ function UI:Create()
 
 	-- Sync status line
 	local statusText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	statusText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 6, -4)
-	statusText:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", -6, -4)
+	statusText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 10, -8)
+	statusText:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", -10, -8)
 	statusText:SetJustifyH("LEFT")
 	self.statusText = statusText
 
 	-- My queue section
-	local queueLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	queueLabel:SetPoint("TOPLEFT", statusText, "BOTTOMLEFT", 0, -6)
-	queueLabel:SetText("|cffaaaaaaMeine Zuteilungen|r")
+	local queueLabel = SectionLabel(f, statusText, "Meine Zuteilungen", -9)
 	self.queueLabel = queueLabel
 
 	local castAllBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	castAllBtn:SetSize(90, 18)
+	castAllBtn:SetSize(92, 20)
 	castAllBtn:SetText("Alle casten")
-	castAllBtn:SetPoint("TOPRIGHT", statusText, "BOTTOMRIGHT", 0, -4)
+	castAllBtn:SetPoint("TOPRIGHT", statusText, "BOTTOMRIGHT", 0, -5)
 	castAllBtn:SetScript("OnClick", function() BM.CastBar:CastAll() end)
 	self.castAllBtn = castAllBtn
 
 	local queueContainer = CreateFrame("Frame", nil, f)
-	queueContainer:SetPoint("TOPLEFT", queueLabel, "BOTTOMLEFT", 0, -6)
-	queueContainer:SetPoint("RIGHT", f, "RIGHT", -8, 0)
+	queueContainer:SetPoint("TOPLEFT", queueLabel, "BOTTOMLEFT", -4, -8)
+	queueContainer:SetPoint("RIGHT", f, "RIGHT", -10, 0)
 	queueContainer:SetHeight(44)
 	self.queueContainer = queueContainer
 	BM.CastBar.container = queueContainer
 
-	local utilLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	utilLabel:SetPoint("TOPLEFT", queueContainer, "BOTTOMLEFT", 0, -4)
-	utilLabel:SetText("|cffaaaaaaSchnellzugriff|r")
+	local queueDivider = Divider(f, queueContainer, -8)
+	self.queueDivider = queueDivider
 
+	local utilLabel = SectionLabel(f, queueDivider, "Schnellzugriff", -2)
 	local utilContainer = CreateFrame("Frame", nil, f)
-	utilContainer:SetPoint("TOPLEFT", utilLabel, "BOTTOMLEFT", 0, -4)
+	utilContainer:SetPoint("TOPLEFT", utilLabel, "BOTTOMLEFT", -4, -8)
 	utilContainer:SetHeight(36)
 	self.utilContainer = utilContainer
+	self.utilLabel = utilLabel
+
+	local utilDivider = Divider(f, utilContainer, -8)
+	self.utilDivider = utilDivider
 
 	-- Profile row
-	local profileLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	profileLabel:SetPoint("TOPLEFT", utilContainer, "BOTTOMLEFT", 0, -8)
-	profileLabel:SetText("|cffaaaaaaPreset|r")
+	local profileLabel = SectionLabel(f, utilDivider, "Preset", -2)
+	self.profileLabel = profileLabel
 
 	local profileDropdown = CreateFrame("Frame", "BlessingMasterProfileDropdown", f, "UIDropDownMenuTemplate")
-	profileDropdown:SetPoint("TOPLEFT", profileLabel, "BOTTOMLEFT", -16, -2)
-	UIDropDownMenu_SetWidth(profileDropdown, 150)
+	profileDropdown:SetPoint("TOPLEFT", profileLabel, "BOTTOMLEFT", -16, -4)
+	UIDropDownMenu_SetWidth(profileDropdown, 140)
 	self.profileDropdown = profileDropdown
 
 	local presetBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	presetBtn:SetSize(70, 20)
+	presetBtn:SetSize(64, 20)
 	presetBtn:SetText("Neu...")
-	presetBtn:SetPoint("LEFT", profileDropdown, "RIGHT", -6, 2)
+	presetBtn:SetPoint("LEFT", profileDropdown, "RIGHT", -8, 2)
 	presetBtn:SetScript("OnClick", function() UI:PromptNewProfile() end)
 
 	local exportBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	exportBtn:SetSize(60, 18)
+	exportBtn:SetSize(58, 18)
 	exportBtn:SetText("Export")
-	exportBtn:SetPoint("TOPLEFT", profileDropdown, "BOTTOMLEFT", 16, -4)
+	exportBtn:SetPoint("TOPLEFT", profileDropdown, "BOTTOMLEFT", 16, -6)
 	exportBtn:SetScript("OnClick", function() UI:ShowExport() end)
 
 	local importBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	importBtn:SetSize(60, 18)
+	importBtn:SetSize(58, 18)
 	importBtn:SetText("Import")
 	importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 4, 0)
 	importBtn:SetScript("OnClick", function() UI:ShowImport() end)
 
 	local deleteBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-	deleteBtn:SetSize(60, 18)
+	deleteBtn:SetSize(58, 18)
 	deleteBtn:SetText("Löschen")
 	deleteBtn:SetPoint("LEFT", importBtn, "RIGHT", 4, 0)
 	deleteBtn:SetScript("OnClick", function()
@@ -169,16 +220,17 @@ function UI:Create()
 		if not ok then BM:Print("Preset löschen fehlgeschlagen: " .. tostring(err)) end
 	end)
 
+	local profileDivider = Divider(f, exportBtn, -8)
+	self.profileDivider = profileDivider
+
 	-- Roster header
-	local rosterLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-	rosterLabel:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", -16, -8)
-	rosterLabel:SetText("|cffaaaaaaRaid-Übersicht (Rechtsklick = Optionen)|r")
+	local rosterLabel = SectionLabel(f, profileDivider, "Raid-Übersicht  (Rechtsklick = Optionen)", -2)
 	self.rosterLabel = rosterLabel
 
 	-- Scroll frame with roster rows
 	local scroll = CreateFrame("ScrollFrame", "BlessingMasterScroll", f, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", rosterLabel, "BOTTOMLEFT", 0, -4)
-	scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -26, 10)
+	scroll:SetPoint("TOPLEFT", rosterLabel, "BOTTOMLEFT", 4, -6)
+	scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -27, 10)
 
 	local scrollChild = CreateFrame("Frame", nil, scroll)
 	scrollChild:SetSize(1, 1)
@@ -186,6 +238,19 @@ function UI:Create()
 	self.scroll = scroll
 	self.scrollChild = scrollChild
 	self.rows = {}
+
+	local emptyRosterText = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	emptyRosterText:SetPoint("TOPLEFT", 4, -4)
+	emptyRosterText:SetPoint("RIGHT", -4, 0)
+	emptyRosterText:SetJustifyH("LEFT")
+	emptyRosterText:SetText("Keine Raidmitglieder gefunden.")
+	self.emptyRosterText = emptyRosterText
+
+	-- Keep the scroll child (and thus every row anchored to it) exactly as
+	-- wide as the visible scroll area, so rows never get squeezed/hidden.
+	scroll:SetScript("OnSizeChanged", function(scrollSelf, w)
+		if w and w > 0 then scrollSelf:GetScrollChild():SetWidth(w) end
+	end)
 
 	self:BuildProfileDropdown()
 	self:UpdateCompactState()
@@ -277,10 +342,16 @@ local function GetRowPool(n)
 		row:SetPoint("RIGHT", UI.scrollChild, "RIGHT", 0, 0)
 		row:RegisterForClicks("RightButtonUp", "LeftButtonUp")
 
+		local stripe = row:CreateTexture(nil, "BACKGROUND")
+		stripe:SetAllPoints()
+		stripe:SetColorTexture(1, 1, 1, 0.03)
+		row.stripe = stripe
+
 		local iconBorder = CreateFrame("Frame", nil, row, "BackdropTemplate")
-		iconBorder:SetSize(16, 16)
-		iconBorder:SetPoint("LEFT", 2, 0)
-		Backdrop(iconBorder, { 0, 0, 0, 0 }, { 1, 1, 1, 1 }, 2)
+		iconBorder:SetSize(17, 17)
+		iconBorder:SetPoint("LEFT", 3, 0)
+		iconBorder:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = 1.5 })
+		iconBorder:SetBackdropBorderColor(1, 1, 1, 1)
 		row.iconBorder = iconBorder
 
 		local icon = iconBorder:CreateTexture(nil, "ARTWORK")
@@ -290,16 +361,23 @@ local function GetRowPool(n)
 		row.icon = icon
 
 		local name = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-		name:SetPoint("LEFT", iconBorder, "RIGHT", 6, 0)
-		name:SetWidth(110)
+		name:SetPoint("LEFT", iconBorder, "RIGHT", 8, 0)
+		name:SetWidth(104)
 		name:SetJustifyH("LEFT")
 		row.name = name
 
 		local blessing = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-		blessing:SetPoint("LEFT", name, "RIGHT", 4, 0)
+		blessing:SetPoint("LEFT", name, "RIGHT", 2, 0)
 		blessing:SetJustifyH("LEFT")
 		row.blessing = blessing
 
+		local casterText = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+		casterText:SetPoint("RIGHT", -4, 0)
+		casterText:SetJustifyH("RIGHT")
+		row.casterText = casterText
+
+		row:SetScript("OnEnter", function(self) self.stripe:SetColorTexture(1, 1, 1, 0.07) end)
+		row:SetScript("OnLeave", function(self) self.stripe:SetColorTexture(1, 1, 1, 0.03) end)
 		row:SetScript("OnClick", function(self, button)
 			if button == "RightButton" and self.memberName then
 				UI:ShowMemberMenu(self.memberName)
@@ -329,7 +407,10 @@ function UI:RefreshRoster()
 		end
 	end
 
+	self.emptyRosterText:SetShown(#entries == 0)
+
 	local rows = GetRowPool(#entries)
+	local myName = UnitName("player")
 	local y = 0
 	for i, entry in ipairs(entries) do
 		local row = rows[i]
@@ -340,19 +421,20 @@ function UI:RefreshRoster()
 		if entry.header then
 			row.iconBorder:Hide()
 			row.icon:Hide()
+			row.stripe:SetColorTexture(COL_ACCENT[1], COL_ACCENT[2], COL_ACCENT[3], 0.12)
 			row.memberName = nil
 			row.name:ClearAllPoints()
-			row.name:SetPoint("LEFT", 2, 0)
+			row.name:SetPoint("LEFT", 4, 0)
 			row.name:SetText("|cff6fb8ff" .. entry.header .. "|r")
 			row.blessing:SetText("")
-			row.iconBorder:SetBackdropBorderColor(0, 0, 0, 0)
+			row.casterText:SetText("")
 		else
 			local m = entry.member
 			row.iconBorder:Show()
 			row.icon:Show()
 			row.memberName = m.shortName
 			row.name:ClearAllPoints()
-			row.name:SetPoint("LEFT", row.iconBorder, "RIGHT", 6, 0)
+			row.name:SetPoint("LEFT", row.iconBorder, "RIGHT", 8, 0)
 
 			local classColor = BM.CLASS_COLORS and BM.CLASS_COLORS[m.class]
 			local nameColor = classColor and ("|cff%02x%02x%02x"):format(classColor.r * 255, classColor.g * 255, classColor.b * 255) or "|cffffffff"
@@ -365,20 +447,37 @@ function UI:RefreshRoster()
 			if blessingKey and not excluded then
 				local def = BM.BLESSINGS[blessingKey]
 				local isGreater = (BM.Assignment.plan.groupBlessing[m.subgroup] == blessingKey)
+				local broken = BM:IsBlessingBroken(blessingKey, isGreater)
 				row.icon:SetTexture(BM:GetBlessingIcon(blessingKey, isGreater))
 				row.blessing:SetText(("|cff999999%s%s|r"):format(isGreater and "G-" or "", def.label))
-				local status = BM.BuffTracker:GetStatus(m.shortName)
-				local c = STATUS_COLOR[status] or STATUS_COLOR.unassigned
-				row.iconBorder:SetBackdropBorderColor(c[1], c[2], c[3], 1)
+				if broken then
+					row.iconBorder:SetBackdropBorderColor(1, 0.15, 0.15, 1)
+				else
+					local status = BM.BuffTracker:GetStatus(m.shortName)
+					local c = STATUS_COLOR[status] or STATUS_COLOR.unassigned
+					row.iconBorder:SetBackdropBorderColor(c[1], c[2], c[3], 1)
+				end
+
+				local caster = BM.Assignment:GetCasterOf(m.shortName)
+				local overridden = BM.Profiles:Get().casterOverride[m.shortName] ~= nil
+				if caster then
+					local casterLabel = (caster == myName) and "|cff2fd12fdu|r" or ("|cff999999" .. caster .. "|r")
+					if overridden then casterLabel = casterLabel .. " |cffffcc00[F]|r" end
+					row.casterText:SetText(casterLabel)
+				else
+					row.casterText:SetText("")
+				end
 			else
 				row.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
 				row.blessing:SetText("")
 				row.iconBorder:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
+				row.casterText:SetText("")
 			end
+			row.stripe:SetColorTexture(1, 1, 1, 0.03)
 		end
 		y = y + ROW_HEIGHT
 	end
-	self.scrollChild:SetSize(1, math.max(y, 1))
+	self.scrollChild:SetHeight(math.max(y, 1))
 
 	local coordName = BM.Comm.coordinator
 	local syncTxt
@@ -411,53 +510,76 @@ function UI:ShowMemberMenu(name)
 
 	local profile = BM.Profiles:Get()
 	UIDropDownMenu_Initialize(menuFrame, function(dropdown, level)
-		local title = UIDropDownMenu_CreateInfo()
-		title.text = name
-		title.isTitle = true
-		title.notCheckable = true
-		UIDropDownMenu_AddButton(title, level)
+		if level == 1 then
+			local title = UIDropDownMenu_CreateInfo()
+			title.text = name
+			title.isTitle = true
+			title.notCheckable = true
+			UIDropDownMenu_AddButton(title, level)
 
-		local excludeInfo = UIDropDownMenu_CreateInfo()
-		local isExcluded = BM.Profiles:IsExcluded(name)
-		excludeInfo.text = isExcluded and "Wieder einschließen" or "Von Auto-Zuteilung ausschließen"
-		excludeInfo.func = function() BM.Profiles:SetExcluded(name, not isExcluded) end
-		excludeInfo.notCheckable = true
-		UIDropDownMenu_AddButton(excludeInfo, level)
+			local excludeInfo = UIDropDownMenu_CreateInfo()
+			local isExcluded = BM.Profiles:IsExcluded(name)
+			excludeInfo.text = isExcluded and "Wieder einschließen" or "Von Auto-Zuteilung ausschließen"
+			excludeInfo.func = function() BM.Profiles:SetExcluded(name, not isExcluded) end
+			excludeInfo.notCheckable = true
+			UIDropDownMenu_AddButton(excludeInfo, level)
 
-		local roleTitle = UIDropDownMenu_CreateInfo()
-		roleTitle.text = "Rolle"
-		roleTitle.isTitle = true
-		roleTitle.notCheckable = true
-		UIDropDownMenu_AddButton(roleTitle, level)
+			local roleTitle = UIDropDownMenu_CreateInfo()
+			roleTitle.text = "Rolle"
+			roleTitle.isTitle = true
+			roleTitle.notCheckable = true
+			UIDropDownMenu_AddButton(roleTitle, level)
 
-		local roles = { { key = nil, label = "Automatisch" }, { key = "MELEE", label = "Nahkampf" }, { key = "CASTER", label = "Caster" }, { key = "HEALER", label = "Heiler" }, { key = "TANK", label = "Tank" } }
-		for _, r in ipairs(roles) do
-			local info = UIDropDownMenu_CreateInfo()
-			info.text = r.label
-			info.checked = (profile.roleOverrides[name] == r.key)
-			info.func = function() BM.Profiles:SetRole(name, r.key) end
-			UIDropDownMenu_AddButton(info, level)
-		end
+			for _, r in ipairs(ROLE_LABELS) do
+				local info = UIDropDownMenu_CreateInfo()
+				info.text = r.label
+				info.checked = (profile.roleOverrides[name] == r.key)
+				info.func = function() BM.Profiles:SetRole(name, r.key) end
+				UIDropDownMenu_AddButton(info, level)
+			end
 
-		local blessTitle = UIDropDownMenu_CreateInfo()
-		blessTitle.text = "Blessing erzwingen"
-		blessTitle.isTitle = true
-		blessTitle.notCheckable = true
-		UIDropDownMenu_AddButton(blessTitle, level)
+			local blessTitle = UIDropDownMenu_CreateInfo()
+			blessTitle.text = "Blessing erzwingen (überschreibt Smart Assignment)"
+			blessTitle.isTitle = true
+			blessTitle.notCheckable = true
+			UIDropDownMenu_AddButton(blessTitle, level)
 
-		local none = UIDropDownMenu_CreateInfo()
-		none.text = "Automatisch"
-		none.checked = (profile.forcedBlessing[name] == nil)
-		none.func = function() BM.Profiles:SetForcedBlessing(name, nil) end
-		UIDropDownMenu_AddButton(none, level)
+			local none = UIDropDownMenu_CreateInfo()
+			none.text = "Automatisch"
+			none.checked = (profile.forcedBlessing[name] == nil)
+			none.func = function() BM.Profiles:SetForcedBlessing(name, nil) end
+			UIDropDownMenu_AddButton(none, level)
 
-		for _, key in ipairs(BM.BLESSING_ORDER) do
-			local def = BM.BLESSINGS[key]
-			local info = UIDropDownMenu_CreateInfo()
-			info.text = def.label
-			info.checked = (profile.forcedBlessing[name] == key)
-			info.func = function() BM.Profiles:SetForcedBlessing(name, key) end
-			UIDropDownMenu_AddButton(info, level)
+			for _, key in ipairs(BM.BLESSING_ORDER) do
+				local def = BM.BLESSINGS[key]
+				local info = UIDropDownMenu_CreateInfo()
+				info.text = def.label
+				info.checked = (profile.forcedBlessing[name] == key)
+				info.func = function() BM.Profiles:SetForcedBlessing(name, key) end
+				UIDropDownMenu_AddButton(info, level)
+			end
+
+			local casterTitle = UIDropDownMenu_CreateInfo()
+			casterTitle.text = "Wer castet? (überschreibt Smart Assignment)"
+			casterTitle.isTitle = true
+			casterTitle.notCheckable = true
+			UIDropDownMenu_AddButton(casterTitle, level)
+
+			local autoCaster = UIDropDownMenu_CreateInfo()
+			autoCaster.text = "Automatisch"
+			autoCaster.checked = (profile.casterOverride[name] == nil)
+			autoCaster.func = function() BM.Profiles:SetCasterOverride(name, nil) end
+			UIDropDownMenu_AddButton(autoCaster, level)
+
+			for _, p in ipairs(BM.Roster.paladins) do
+				if p.online then
+					local info = UIDropDownMenu_CreateInfo()
+					info.text = p.shortName
+					info.checked = (profile.casterOverride[name] == p.shortName)
+					info.func = function() BM.Profiles:SetCasterOverride(name, p.shortName) end
+					UIDropDownMenu_AddButton(info, level)
+				end
+			end
 		end
 	end, "MENU")
 	ToggleDropDownMenu(1, nil, menuFrame, "cursor", 0, 0)
@@ -474,11 +596,15 @@ function UI:UpdateCompactState()
 	self.rosterLabel:SetShown(not compact)
 	self.scroll:SetShown(not compact)
 	self.profileDropdown:SetShown(not compact)
+	self.profileLabel:SetShown(not compact)
+	self.profileDivider:SetShown(not compact)
 	self.utilContainer:SetShown(not compact)
+	self.utilLabel:SetShown(not compact)
+	self.utilDivider:SetShown(not compact)
 	if compact then
-		f:SetHeight(140)
+		f:SetHeight(150)
 	else
-		f:SetHeight(440)
+		f:SetHeight(470)
 	end
 end
 
@@ -519,7 +645,6 @@ end
 -- Wiring
 -- ---------------------------------------------------------------------------
 
-BM:On("DB_READY", function() end)
 BM:On("PLAYER_LOGIN", function()
 	UI:Create()
 	BM.CastBar:BuildUtilityButtons(UI.utilContainer)
