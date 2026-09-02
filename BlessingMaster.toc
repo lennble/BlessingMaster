@@ -1,0 +1,18 @@
+## Interface: 20504
+## Title: BlessingMaster
+## Notes: Smart Paladin Blessing assignment and raid sync (PallyPower-style) for TBC Classic
+## Author: BlessingMaster
+## Version: 1.0.0
+## SavedVariables: BlessingMasterDB
+## DefaultState: enabled
+
+Core.lua
+Constants.lua
+Roster.lua
+Profiles.lua
+Assignment.lua
+Comm.lua
+BuffTracker.lua
+CastBar.lua
+UI.lua
+Minimap.lua
